@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/busybox/sh
+# distroless :debug has no /bin/sh — busybox lives under /busybox/ (sh, base64, printf).
 # dvoid (org-specific): materialise the config file from the environment.
 #
 # The estate generates Pomerium's config from its catalog (platform/services/
@@ -12,6 +13,6 @@
 # CMD already points. Secrets stay as plain env vars (env overrides the file).
 set -eu
 if [ -n "${POMERIUM_CONFIG_B64:-}" ]; then
-  printf '%s' "$POMERIUM_CONFIG_B64" | base64 -d > /pomerium/config.yaml
+  /busybox/printf "%s" "$POMERIUM_CONFIG_B64" | /busybox/base64 -d > /pomerium/config.yaml
 fi
 exec /bin/pomerium "$@"
