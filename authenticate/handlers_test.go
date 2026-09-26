@@ -906,7 +906,7 @@ func (*stubFlow) SignIn(http.ResponseWriter, *http.Request, *session.Handle) err
 }
 
 func (*stubFlow) PersistSession(
-	context.Context, http.ResponseWriter, *session.Handle, identity.SessionClaims, *oauth2.Token,
+	context.Context, http.ResponseWriter, *http.Request, *session.Handle, identity.SessionClaims, *oauth2.Token,
 ) error {
 	return nil
 }

@@ -33,13 +33,13 @@ func TestNew(t *testing.T) {
 		want    sessions.HandleWriter
 		wantErr bool
 	}{
-		{"good", &Options{Name: "_cookie", Secure: true, HTTPOnly: true, Domain: "pomerium.io", Expire: 10 * time.Second}, encoder, &handleReaderWriter{getOptions: func() Options {
+		{"good", &Options{Name: "_cookie", Secure: true, HTTPOnly: true, Domain: "pomerium.io", Expire: 10 * time.Second}, encoder, &handleReaderWriter{getOptions: func(*http.Request) Options {
 			return Options{Name: "_cookie", Secure: true, HTTPOnly: true, Domain: "pomerium.io", Expire: 10 * time.Second}
 		}}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := New(func() Options {
+			got, err := New(func(*http.Request) Options {
 				return *tt.opts
 			}, tt.encoder)
 			if (err != nil) != tt.wantErr {
@@ -79,7 +79,7 @@ func TestWriteSessionHandle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &handleReaderWriter{
-				getOptions: func() Options {
+				getOptions: func(*http.Request) Options {
 					return Options{
 						Name:     "_pomerium",
 						Secure:   true,
@@ -94,7 +94,7 @@ func TestWriteSessionHandle(t *testing.T) {
 			r := httptest.NewRequest(http.MethodGet, "/", nil)
 			w := httptest.NewRecorder()
 
-			if err := s.WriteSessionHandle(w, tt.State); (err != nil) != tt.wantErr {
+			if err := s.WriteSessionHandle(w, r, tt.State); (err != nil) != tt.wantErr {
 				t.Errorf("Store.SaveSession() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			r = httptest.NewRequest(http.MethodGet, "/", nil)
@@ -119,7 +119,7 @@ func TestWriteSessionHandle(t *testing.T) {
 				}
 			}
 			w = httptest.NewRecorder()
-			s.ClearSessionHandle(w)
+			s.ClearSessionHandle(w, r)
 			x := w.Header().Get("Set-Cookie")
 			if !strings.Contains(x, "_pomerium=; Path=/;") {
 				t.Error(x)
@@ -157,7 +157,7 @@ func TestReadSessionHandleJWT(t *testing.T) {
 				encSession = append(encSession, cryptutil.NewKey()...)
 			}
 
-			cs, err := New(func() Options {
+			cs, err := New(func(*http.Request) Options {
 				return Options{
 					Name: "_pomerium",
 				}

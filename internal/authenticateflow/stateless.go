@@ -185,7 +185,7 @@ func (s *Stateless) SignIn(
 	}
 
 	// re-persist the session, useful when session was evicted from session store
-	if err := s.sessionStore.WriteSessionHandle(w, h); err != nil {
+	if err := s.sessionStore.WriteSessionHandle(w, r, h); err != nil {
 		return httputil.NewError(http.StatusBadRequest, err)
 	}
 
@@ -218,6 +218,7 @@ func (s *Stateless) SignIn(
 func (s *Stateless) PersistSession(
 	ctx context.Context,
 	w http.ResponseWriter,
+	r *http.Request,
 	h *session.Handle,
 	claims identity.SessionClaims,
 	accessToken *oauth2.Token,
@@ -227,7 +228,7 @@ func (s *Stateless) PersistSession(
 	if err != nil {
 		return err
 	}
-	err = storeIdentityProfile(w, s.options.NewCookie(), s.cookieCipher, profile)
+	err = storeIdentityProfile(w, s.options.NewCookie(r), s.cookieCipher, profile)
 	if err != nil {
 		log.Ctx(ctx).Error().Err(err).Msg("failed to store identity profile")
 	}
@@ -449,7 +450,7 @@ func (s *Stateless) Callback(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return httputil.NewError(http.StatusInternalServerError, fmt.Errorf("proxy: error marshaling session handle: %w", err))
 	}
-	if err = s.sessionStore.WriteSessionHandleJWT(w, rawJWT); err != nil {
+	if err = s.sessionStore.WriteSessionHandleJWT(w, r, rawJWT); err != nil {
 		return httputil.NewError(http.StatusInternalServerError, fmt.Errorf("proxy: error saving session handle: %w", err))
 	}
 
