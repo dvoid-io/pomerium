@@ -6,6 +6,10 @@
 # Uses upstream's own Dockerfile unchanged (UI build + Go build + embedded
 # Envoy), single linux/amd64 for Railway.
 #
+# The image is built only after the fork's own tests pass: every Go package a
+# patch/* or local/* branch changes, tested whole. Upstream's suite is upstream's
+# to keep green; what only this fork can break is what its branches touch.
+#
 # Lives on local/ci-image-build; reaches deploy/production via rebuild-deploy
 # (estate-ops/docs/UPSTREAM-SYNC.md). Never goes upstream.
 name: dvoid · Build Pomerium image
@@ -17,12 +21,50 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
+  fork-tests:
+    name: Test the fork's own packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      # .tool-versions, not go.mod: go.mod's `go` line is a minimum, while
+      # .tool-versions pins the toolchain the Dockerfile's builder stage uses.
+      # v6 reads the `golang` line; v5 read the first line (golangci-lint).
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0, as upstream pins it
+        with:
+          go-version-file: .tool-versions
+          cache: true
+      # rebuild-deploy builds deploy/production as origin/<mirror> plus one
+      # `--no-ff` merge per branch titled "merge <branch> into deploy/production",
+      # so the mirror is the first commit on the first-parent chain without that
+      # title. Everything after it is the fork's.
+      - name: Find the packages the fork changes
+        id: pkgs
+        run: |
+          set -euo pipefail
+          mirror="$(git log --first-parent -1 --format=%H --invert-grep \
+            -E --grep='^merge (patch|local)/.+ into deploy/production$' HEAD)"
+          pkgs="$(git diff --name-only "$mirror" HEAD -- '*.go' | xargs -r -n1 dirname | sort -u |
+            while read -r d; do compgen -G "$d/*_test.go" >/dev/null && echo "./$d"; done | paste -sd' ')"
+          echo "mirror: $(git log -1 --format='%h %s' "$mirror")"
+          echo "packages: ${pkgs:-none}"
+          # A gate that tests nothing must not pass as one: no package means the
+          # mirror was not found, or the fork no longer carries Go changes.
+          [[ -n "$pkgs" ]] || { echo "::error::no fork package to test — see above"; exit 1; }
+          echo "list=$pkgs" >> "$GITHUB_OUTPUT"
+      # authorize and authenticateflow embed the Envoy binary (pkg/envoy/files).
+      - run: make get-envoy
+      - run: go test -count=1 ${{ steps.pkgs.outputs.list }}
+
   build-image:
     name: Build & push ghcr.io/dvoid-io/pomerium
+    needs: fork-tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }   # upstream's Dockerfile COPYs .git for version stamping
