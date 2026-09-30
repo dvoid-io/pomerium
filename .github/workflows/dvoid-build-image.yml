@@ -31,7 +31,8 @@ jobs:
         with: { fetch-depth: 0 }
       # .tool-versions, not go.mod: go.mod's `go` line is a minimum, while
       # .tool-versions pins the toolchain the Dockerfile's builder stage uses.
-      - uses: actions/setup-go@v5
+      # v6 reads the `golang` line; v5 read the first line (golangci-lint).
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0, as upstream pins it
         with:
           go-version-file: .tool-versions
           cache: true
