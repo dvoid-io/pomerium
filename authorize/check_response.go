@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/pomerium/pomerium/internal/urlutil"
 	"github.com/pomerium/pomerium/pkg/contextutil"
 	"github.com/pomerium/pomerium/pkg/endpoints"
+	"github.com/pomerium/pomerium/pkg/identity/prompt"
 	"github.com/pomerium/pomerium/pkg/policy/criteria"
 	"github.com/pomerium/pomerium/pkg/telemetry/requestid"
 	"github.com/pomerium/pomerium/pkg/webauthnutil"
@@ -127,6 +129,19 @@ func (a *Authorize) handleResultDenied(
 	}
 
 	return a.deniedResponse(ctx, in, denyStatusCode, denyStatusText, headers)
+}
+
+// takePrompt (dvoid fork) removes every pomerium_prompt from u and reports
+// whether one of them asked for exactly select_account.
+func takePrompt(u *url.URL) bool {
+	q := u.Query()
+	values, ok := q[urlutil.QueryPrompt]
+	if !ok {
+		return false
+	}
+	q.Del(urlutil.QueryPrompt)
+	u.RawQuery = q.Encode()
+	return slices.Contains(values, prompt.SelectAccount)
 }
 
 // forbiddenRedirectResponse (dvoid fork) sends a browser navigation that a
@@ -344,6 +359,16 @@ func (a *Authorize) requireLoginResponse(
 	if id := in.GetAttributes().GetRequest().GetHttp().GetHeaders()["traceparent"]; id != "" {
 		signInURLQuery = url.Values{}
 		signInURLQuery.Add("pomerium_traceparent", id)
+	}
+	// dvoid fork: a navigation that asks for the IdP's account chooser
+	// (pomerium_prompt=select_account, e.g. the shell's "Use a different
+	// account") carries it into the SIGNED sign-in URL, and not into the URL the
+	// user returns to. No other value passes.
+	if takePrompt(&checkRequestURL) {
+		if signInURLQuery == nil {
+			signInURLQuery = url.Values{}
+		}
+		signInURLQuery.Set(urlutil.QueryPrompt, prompt.SelectAccount)
 	}
 	var additionalHosts []string
 	if request.Policy != nil {

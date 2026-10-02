@@ -23,6 +23,11 @@ const (
 	QueryRequestUUID        = "pomerium_request_uuid"
 	QueryTraceparent        = "pomerium_traceparent"
 	QueryTracestate         = "pomerium_tracestate"
+
+	// QueryPrompt (dvoid fork) asks the sign-in for the IdP's account chooser:
+	// pomerium_prompt=select_account on a navigation, carried by authorize into
+	// the signed sign-in URL. No other value is honoured.
+	QueryPrompt = "pomerium_prompt"
 )
 
 // URL signature based query params used for verifying the authenticity of a URL.
