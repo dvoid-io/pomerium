@@ -26,6 +26,7 @@ import (
 	"github.com/pomerium/pomerium/pkg/endpoints"
 	"github.com/pomerium/pomerium/pkg/grpc/session"
 	"github.com/pomerium/pomerium/pkg/identity"
+	"github.com/pomerium/pomerium/pkg/identity/prompt"
 	"github.com/pomerium/pomerium/pkg/telemetry/trace"
 )
 
@@ -258,12 +259,31 @@ func (a *Authenticate) reauthenticateOrFail(w http.ResponseWriter, r *http.Reque
 		r = r.WithContext(ctx)
 	}
 
+	if requestedPrompt(r, state.flow.VerifyAuthenticateSignature) != "" {
+		r = r.WithContext(prompt.WithSelectAccount(r.Context()))
+	}
+
 	err = authenticator.SignIn(w, r, encodedState)
 	if err != nil {
 		return httputil.NewError(http.StatusInternalServerError,
 			fmt.Errorf("failed to sign in: %w", err))
 	}
 	return nil
+}
+
+// requestedPrompt (dvoid fork) returns the prompt this sign-in may ask the IdP
+// for: select_account, and only when the sign-in URL carrying it verifies.
+// VerifySession sends a request here BEFORE SignIn checks the URL's signature,
+// so the check is made here, by the same verifier; an unsigned or tampered
+// pomerium_prompt is ignored, never honoured.
+func requestedPrompt(r *http.Request, verify func(*http.Request) error) string {
+	if r.URL.Query().Get(urlutil.QueryPrompt) != prompt.SelectAccount {
+		return ""
+	}
+	if verify(r) != nil {
+		return ""
+	}
+	return prompt.SelectAccount
 }
 
 // OAuthCallback handles the callback from the identity provider.

@@ -25,6 +25,7 @@ import (
 	"github.com/pomerium/pomerium/pkg/identity/oauth"
 	"github.com/pomerium/pomerium/pkg/identity/oidc/internal"
 	"github.com/pomerium/pomerium/pkg/identity/pkce"
+	"github.com/pomerium/pomerium/pkg/identity/prompt"
 	"github.com/pomerium/pomerium/pkg/telemetry/trace"
 )
 
@@ -138,6 +139,18 @@ func (p *Provider) SignIn(w http.ResponseWriter, r *http.Request, state string) 
 	}
 	if hasPKCE {
 		opts = append(opts, pkce.AuthCodeOptions(pkceParams)...)
+	}
+	// dvoid fork: a request that asked for the account chooser adds it to the
+	// configured prompt, never replacing it (prompt.Merge). Set last, so it is
+	// the one prompt parameter the URL carries.
+	if requested := prompt.FromContext(r.Context()); requested != "" {
+		configured := ""
+		for k, v := range p.AuthCodeOptions {
+			if strings.EqualFold(k, "prompt") {
+				configured = v
+			}
+		}
+		opts = append(opts, oauth2.SetAuthURLParam("prompt", prompt.Merge(configured, requested)))
 	}
 	signInURL := oa.AuthCodeURL(state, opts...)
 	httputil.Redirect(w, r, signInURL, http.StatusFound)

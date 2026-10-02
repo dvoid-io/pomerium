@@ -133,6 +133,11 @@ type Options struct {
 	AuthenticateInternalURLString string `mapstructure:"authenticate_internal_service_url" yaml:"authenticate_internal_service_url,omitempty"`
 	// SignOutRedirectURL represents the url that  user will be redirected to after signing out.
 	SignOutRedirectURLString string `mapstructure:"signout_redirect_url" yaml:"signout_redirect_url,omitempty"`
+	// ForbiddenRedirectURLString (dvoid fork), when set, sends a browser
+	// navigation that a route's policy denies (a plain 403) to this URL instead
+	// of rendering Pomerium's error page, whose branding is Enterprise-only.
+	// Only the denied route's host travels, as the `host` query parameter.
+	ForbiddenRedirectURLString string `mapstructure:"forbidden_redirect_url" yaml:"forbidden_redirect_url,omitempty"`
 
 	// Session/Cookie management
 	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie
@@ -631,6 +636,13 @@ func (o *Options) Validate() error {
 		}
 	}
 
+	if o.ForbiddenRedirectURLString != "" {
+		_, err := urlutil.ParseAndValidateURL(o.ForbiddenRedirectURLString)
+		if err != nil {
+			return fmt.Errorf("config: bad forbidden-redirect-url %s : %w", o.ForbiddenRedirectURLString, err)
+		}
+	}
+
 	if o.AuthorizeURLString != "" {
 		_, err := urlutil.ParseAndValidateURL(o.AuthorizeURLString)
 		if err != nil {
@@ -990,6 +1002,15 @@ func (o *Options) GetGRPCInsecure() bool {
 // GetSignOutRedirectURL gets the SignOutRedirectURL.
 func (o *Options) GetSignOutRedirectURL() (*url.URL, error) {
 	rawurl := o.SignOutRedirectURLString
+	if rawurl == "" {
+		return nil, nil
+	}
+	return urlutil.ParseAndValidateURL(rawurl)
+}
+
+// GetForbiddenRedirectURL gets the ForbiddenRedirectURL (dvoid fork); nil when unset.
+func (o *Options) GetForbiddenRedirectURL() (*url.URL, error) {
+	rawurl := o.ForbiddenRedirectURLString
 	if rawurl == "" {
 		return nil, nil
 	}
