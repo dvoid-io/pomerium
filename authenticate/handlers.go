@@ -185,7 +185,7 @@ func (a *Authenticate) SignIn(w http.ResponseWriter, r *http.Request) error {
 
 	h, err := a.getSessionHandleFromRequest(r)
 	if err != nil {
-		state.sessionHandleWriter.ClearSessionHandle(w)
+		state.sessionHandleWriter.ClearSessionHandle(w, r)
 		return err
 	}
 
@@ -227,7 +227,7 @@ func (a *Authenticate) reauthenticateOrFail(w http.ResponseWriter, r *http.Reque
 
 	state.flow.LogAuthenticateEvent(r)
 
-	state.sessionHandleWriter.ClearSessionHandle(w)
+	state.sessionHandleWriter.ClearSessionHandle(w, r)
 	redirectURL := state.redirectURL.ResolveReference(r.URL)
 	redirectURLValues := redirectURL.Query()
 	var traceID string
@@ -391,12 +391,12 @@ Or contact your administrator.
 	}
 
 	// save the session and access token to the databroker/cookie store
-	if err := state.flow.PersistSession(ctx, w, h, claims, accessToken); err != nil {
+	if err := state.flow.PersistSession(ctx, w, r, h, claims, accessToken); err != nil {
 		return nil, fmt.Errorf("failed saving new session: %w", err)
 	}
 
 	// ...  and the user state to local storage.
-	if err := state.sessionHandleWriter.WriteSessionHandle(w, h); err != nil {
+	if err := state.sessionHandleWriter.WriteSessionHandle(w, r, h); err != nil {
 		return nil, fmt.Errorf("failed saving new session: %w", err)
 	}
 
@@ -422,7 +422,7 @@ func (a *Authenticate) userInfo(w http.ResponseWriter, r *http.Request) error {
 		u := urlutil.GetAbsoluteURL(r)
 		u.RawQuery = ""
 
-		cookie := options.NewCookie()
+		cookie := options.NewCookie(r)
 		cookie.Name = urlutil.QueryRedirectURI
 		cookie.Value = redirectURI
 

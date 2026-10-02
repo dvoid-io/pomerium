@@ -542,7 +542,7 @@ func TestPersistSession(t *testing.T) {
 			}, nil
 		})
 
-	err = flow.PersistSession(ctx, nil, h, claims, accessToken)
+	err = flow.PersistSession(ctx, nil, nil, h, claims, accessToken)
 	assert.NoError(t, err)
 	assert.Equal(t, proto.Uint64(1111), h.DatabrokerRecordVersion)
 	assert.Equal(t, proto.Uint64(2222), h.DatabrokerServerVersion)

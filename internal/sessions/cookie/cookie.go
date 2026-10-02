@@ -20,8 +20,8 @@ type Options struct {
 	SameSite http.SameSite
 }
 
-// A GetOptionsFunc is a getter for cookie options.
-type GetOptionsFunc func() Options
+// A GetOptionsFunc is a getter for the cookie options to use for a request.
+type GetOptionsFunc func(r *http.Request) Options
 
 // handleReaderWriter implements the HandleReaderWriter interface using cookies.
 type handleReaderWriter struct {
@@ -36,8 +36,8 @@ func New(getOptions GetOptionsFunc, encoder encoding.MarshalUnmarshaler) (sessio
 	return cs, nil
 }
 
-func (hrw *handleReaderWriter) makeCookie(value string) *http.Cookie {
-	opts := hrw.getOptions()
+func (hrw *handleReaderWriter) makeCookie(r *http.Request, value string) *http.Cookie {
+	opts := hrw.getOptions(r)
 	return &http.Cookie{
 		Name:     opts.Name,
 		Value:    value,
@@ -51,8 +51,8 @@ func (hrw *handleReaderWriter) makeCookie(value string) *http.Cookie {
 }
 
 // ClearSessionHandle clears the session handle cookie from a request
-func (hrw *handleReaderWriter) ClearSessionHandle(w http.ResponseWriter) {
-	c := hrw.makeCookie("")
+func (hrw *handleReaderWriter) ClearSessionHandle(w http.ResponseWriter, r *http.Request) {
+	c := hrw.makeCookie(r, "")
 	c.MaxAge = -1
 	c.Expires = time.Now().Add(-time.Hour)
 	http.SetCookie(w, c)
@@ -74,7 +74,7 @@ func (hrw *handleReaderWriter) ReadSessionHandle(r *http.Request) (*session.Hand
 
 // ReadSessionHandleJWT returns a session handle jwt from the cookie in the request.
 func (hrw *handleReaderWriter) ReadSessionHandleJWT(r *http.Request) ([]byte, error) {
-	opts := hrw.getOptions()
+	opts := hrw.getOptions(r)
 	for _, c := range r.CookiesNamed(opts.Name) {
 		return []byte(c.Value), nil
 	}
@@ -82,20 +82,20 @@ func (hrw *handleReaderWriter) ReadSessionHandleJWT(r *http.Request) ([]byte, er
 }
 
 // WriteSessionHandle saves a session handle to a request's cookie store.
-func (hrw *handleReaderWriter) WriteSessionHandle(w http.ResponseWriter, h *session.Handle) error {
+func (hrw *handleReaderWriter) WriteSessionHandle(w http.ResponseWriter, r *http.Request, h *session.Handle) error {
 	rawJWT, err := hrw.encoder.Marshal(h)
 	if err != nil {
 		return err
 	}
-	return hrw.WriteSessionHandleJWT(w, rawJWT)
+	return hrw.WriteSessionHandleJWT(w, r, rawJWT)
 }
 
 // WriteSessionHandleJWT saves a session handle to a request's cookie store.
-func (hrw *handleReaderWriter) WriteSessionHandleJWT(w http.ResponseWriter, rawJWT []byte) error {
-	hrw.setSessionCookie(w, string(rawJWT))
+func (hrw *handleReaderWriter) WriteSessionHandleJWT(w http.ResponseWriter, r *http.Request, rawJWT []byte) error {
+	hrw.setSessionCookie(w, r, string(rawJWT))
 	return nil
 }
 
-func (hrw *handleReaderWriter) setSessionCookie(w http.ResponseWriter, val string) {
-	http.SetCookie(w, hrw.makeCookie(val))
+func (hrw *handleReaderWriter) setSessionCookie(w http.ResponseWriter, r *http.Request, val string) {
+	http.SetCookie(w, hrw.makeCookie(r, val))
 }

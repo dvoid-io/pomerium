@@ -421,7 +421,7 @@ func (h *Handler) saveSessionAndRedirect(w http.ResponseWriter, r *http.Request,
 	// add databroker versions to the session cookie and save
 	state.SessionHandle.DatabrokerServerVersion = new(res.GetServerVersion())
 	state.SessionHandle.DatabrokerRecordVersion = new(res.GetRecord().GetVersion())
-	err = state.SessionStore.WriteSessionHandle(w, state.SessionHandle)
+	err = state.SessionStore.WriteSessionHandle(w, r, state.SessionHandle)
 	if err != nil {
 		return err
 	}
