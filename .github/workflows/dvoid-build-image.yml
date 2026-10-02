@@ -1,0 +1,45 @@
+# dvoid (org-specific) — build a Pomerium image from THIS fork's deploy/production
+# (= upstream main + patch/* + local/*) and push it to ghcr.io/dvoid-io/pomerium.
+# Railway pulls the image directly (image source + registry credentials), the
+# same lane as ghcr.io/dvoid-io/affine. Building from the fork is the point: it
+# carries patch/fetch-metadata-redirect until upstream ships the equivalent.
+# Uses upstream's own Dockerfile unchanged (UI build + Go build + embedded
+# Envoy), single linux/amd64 for Railway.
+#
+# Lives on local/ci-image-build; reaches deploy/production via rebuild-deploy
+# (estate-ops/docs/UPSTREAM-SYNC.md). Never goes upstream.
+name: dvoid · Build Pomerium image
+
+on:
+  push:
+    branches: [deploy/production]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-image:
+    name: Build & push ghcr.io/dvoid-io/pomerium
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }   # upstream's Dockerfile COPYs .git for version stamping
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/dvoid-io/pomerium:deploy-production
+            ghcr.io/dvoid-io/pomerium:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
