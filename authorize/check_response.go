@@ -120,7 +120,47 @@ func (a *Authorize) handleResultDenied(
 		mcp.SetCORSHeaders(headers)
 	}
 
+	if denyStatusCode == http.StatusForbidden && headers == nil {
+		if resp := a.forbiddenRedirectResponse(in, request); resp != nil {
+			return resp, nil
+		}
+	}
+
 	return a.deniedResponse(ctx, in, denyStatusCode, denyStatusText, headers)
+}
+
+// forbiddenRedirectResponse (dvoid fork) sends a browser navigation that a
+// route's policy denied to the configured forbidden_redirect_url, the way
+// signout_redirect_url replaces the signed-out page: the user lands on a page
+// that explains the denial instead of Pomerium's error page. Only the denied
+// route's host travels (the user already sees it in the address bar); no claim,
+// email or reason leaves the edge. Anything that is not a navigation (fetch,
+// XHR, gRPC, a bearer or JSON client) keeps its 403, by the same rule that
+// decides a login redirect, and a denial of the forbidden page itself renders
+// rather than looping.
+func (a *Authorize) forbiddenRedirectResponse(
+	in *envoy_service_auth_v3.CheckRequest,
+	request *evaluator.Request,
+) *envoy_service_auth_v3.CheckResponse {
+	cfg := a.currentConfig.Load()
+	target, err := cfg.Options.GetForbiddenRedirectURL()
+	if err != nil || target == nil {
+		return nil
+	}
+	if isJSONWebRequest(in) || !ShouldRedirect(cfg, in, request) {
+		return nil
+	}
+	denied := checkrequest.GetURL(in)
+	if strings.EqualFold(denied.Hostname(), target.Hostname()) && denied.Path == target.Path {
+		return nil
+	}
+	q := target.Query()
+	q.Set("host", denied.Hostname())
+	target.RawQuery = q.Encode()
+	headers := http.Header{}
+	headers.Set("Location", target.String())
+	headers.Set("Cache-Control", "no-store")
+	return mkDeniedCheckResponse(http.StatusFound, headers, "")
 }
 
 func invalidClientCertReason(reasons criteria.Reasons) bool {
