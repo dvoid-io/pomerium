@@ -24,6 +24,7 @@ import (
 	"github.com/pomerium/pomerium/pkg/identity/oauth"
 	"github.com/pomerium/pomerium/pkg/identity/oidc"
 	"github.com/pomerium/pomerium/pkg/identity/pkce"
+	"github.com/pomerium/pomerium/pkg/identity/prompt"
 )
 
 // Claims implements identity.State. (We can't use identity.Claims directly
@@ -831,4 +832,40 @@ func TestVerifyIdentityToken(t *testing.T) {
 		"iss": srv.URL,
 		"sub": "subject",
 	}, claims)
+}
+
+// dvoid fork: a request that asked for the account chooser adds it to the
+// configured prompt, never replacing it; without the ask nothing changes.
+func TestSignInWithPrompt(t *testing.T) {
+	ctx, clearTimeout := context.WithTimeout(t.Context(), time.Second*10)
+	t.Cleanup(clearTimeout)
+	redirectURL, _ := url.Parse("https://localhost/oauth2/callback")
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"issuer": srv.URL, "authorization_endpoint": srv.URL + "/login"})
+	}))
+	t.Cleanup(srv.Close)
+
+	location := func(t *testing.T, configured map[string]string, ask bool) url.Values {
+		p, err := oidc.New(ctx, &oauth.Options{
+			ProviderURL: srv.URL, RedirectURL: redirectURL, ClientID: "CLIENT_ID", ClientSecret: "CLIENT_SECRET",
+			AuthCodeOptions: configured,
+		})
+		require.NoError(t, err)
+		r := httptest.NewRequest(http.MethodGet, "/", nil)
+		if ask {
+			r = r.WithContext(prompt.WithSelectAccount(r.Context()))
+		}
+		rec := httptest.NewRecorder()
+		require.NoError(t, p.SignIn(rec, r, "STATE"))
+		u, _ := url.Parse(rec.Result().Header.Get("Location"))
+		return u.Query()
+	}
+
+	assert.Equal(t, []string{"select_account"}, location(t, nil, true)["prompt"])
+	assert.Equal(t, []string{"login select_account"}, location(t, map[string]string{"prompt": "login"}, true)["prompt"])
+	assert.Equal(t, []string{"none"}, location(t, map[string]string{"prompt": "none"}, true)["prompt"])
+	assert.Empty(t, location(t, nil, false)["prompt"], "no ask: silent SSO stays silent")
+	assert.Equal(t, []string{"login"}, location(t, map[string]string{"prompt": "login"}, false)["prompt"])
 }
