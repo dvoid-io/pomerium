@@ -32,7 +32,7 @@ WORKDIR /pomerium
 COPY --from=build /go/src/github.com/pomerium/pomerium/bin/* /bin/
 COPY --from=build /config.yaml /pomerium/config.yaml
 # dvoid: config-from-env shim (dvoid/entrypoint.sh) — the distroless :debug base
-# ships busybox sh + base64, which is all it needs. See the script's header.
+# ships busybox sh, base64 and gunzip, which is all it needs. See the script's header.
 COPY dvoid/entrypoint.sh /bin/dvoid-entrypoint.sh
 ENTRYPOINT [ "/bin/dvoid-entrypoint.sh" ]
 CMD ["--config","/pomerium/config.yaml"]
