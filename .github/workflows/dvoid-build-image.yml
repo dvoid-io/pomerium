@@ -13,6 +13,8 @@ name: dvoid · Build Pomerium image
 on:
   push:
     branches: [deploy/production]
+  pull_request:
+    paths: [dvoid/**, Dockerfile, .github/workflows/dvoid-build-image.yml]
   workflow_dispatch:
 
 permissions:
@@ -20,8 +22,17 @@ permissions:
   packages: write
 
 jobs:
+  entrypoint:
+    name: Entrypoint (dvoid/entrypoint_test.sh)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash dvoid/entrypoint_test.sh
+
   build-image:
     name: Build & push ghcr.io/dvoid-io/pomerium
+    needs: entrypoint
+    if: github.event_name != 'pull_request'   # a PR proves the entrypoint; only deploy/production builds
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
