@@ -11,9 +11,9 @@ import (
 
 // HandleWriter defines an interface for writing and clearing a session.
 type HandleWriter interface {
-	ClearSessionHandle(http.ResponseWriter)
-	WriteSessionHandle(http.ResponseWriter, *session.Handle) error
-	WriteSessionHandleJWT(http.ResponseWriter, []byte) error
+	ClearSessionHandle(http.ResponseWriter, *http.Request)
+	WriteSessionHandle(http.ResponseWriter, *http.Request, *session.Handle) error
+	WriteSessionHandleJWT(http.ResponseWriter, *http.Request, []byte) error
 }
 
 // HandleReader defines an interface for reading a session handle.

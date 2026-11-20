@@ -35,7 +35,7 @@ func TestStore(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ms := tt.store
 
-			err := ms.WriteSessionHandle(nil, tt.saveSession)
+			err := ms.WriteSessionHandle(nil, nil, tt.saveSession)
 			if (err != nil) != tt.wantSaveErr {
 				t.Errorf("mockstore.SaveSession() error = %v, wantSaveErr %v", err, tt.wantSaveErr)
 				return
@@ -46,7 +46,7 @@ func TestStore(t *testing.T) {
 				return
 			}
 			assert.Equal(t, tt.wantLoad, string(got))
-			ms.ClearSessionHandle(nil)
+			ms.ClearSessionHandle(nil, nil)
 			if ms.ResponseSession != "" {
 				t.Errorf("ResponseSession not empty! %s", ms.ResponseSession)
 			}

@@ -26,7 +26,7 @@ type Store struct {
 }
 
 // ClearSessionHandle clears the ResponseSession.
-func (ms *Store) ClearSessionHandle(http.ResponseWriter) {
+func (ms *Store) ClearSessionHandle(http.ResponseWriter, *http.Request) {
 	ms.ResponseSession = ""
 }
 
@@ -44,11 +44,11 @@ func (ms Store) ReadSessionHandleJWT(*http.Request) ([]byte, error) {
 }
 
 // WriteSessionHandle returns a save error.
-func (ms Store) WriteSessionHandle(http.ResponseWriter, *session.Handle) error {
+func (ms Store) WriteSessionHandle(http.ResponseWriter, *http.Request, *session.Handle) error {
 	return ms.SaveError
 }
 
 // WriteSessionHandleJWT returns a save error.
-func (ms Store) WriteSessionHandleJWT(http.ResponseWriter, []byte) error {
+func (ms Store) WriteSessionHandleJWT(http.ResponseWriter, *http.Request, []byte) error {
 	return ms.SaveError
 }

@@ -1530,11 +1530,11 @@ func (o *Options) GetMCPAllowedAsMetadataDomains() []string {
 	return s.Slice()
 }
 
-// NewCookie creates a new Cookie.
-func (o *Options) NewCookie() *http.Cookie {
+// NewCookie creates a new Cookie for a response to r.
+func (o *Options) NewCookie(r *http.Request) *http.Cookie {
 	return &http.Cookie{
 		Name:     o.CookieName,
-		Domain:   o.CookieDomain,
+		Domain:   o.GetCookieDomain(r),
 		Expires:  time.Now().Add(o.CookieExpire),
 		Secure:   true,
 		SameSite: o.GetCookieSameSite(),

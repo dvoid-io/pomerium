@@ -195,7 +195,7 @@ func (s *Stateful) SignIn(
 	newSession := h.WithNewIssuer(s.authenticateURL.Host, jwtAudience)
 
 	// re-persist the session, useful when session was evicted from session store
-	if err := s.sessionStore.WriteSessionHandle(w, h); err != nil {
+	if err := s.sessionStore.WriteSessionHandle(w, r, h); err != nil {
 		return httputil.NewError(http.StatusBadRequest, err)
 	}
 
@@ -511,6 +511,7 @@ func (s *Stateful) RevokeIdentityBinding(w http.ResponseWriter, r *http.Request,
 func (s *Stateful) PersistSession(
 	ctx context.Context,
 	_ http.ResponseWriter,
+	_ *http.Request,
 	h *session.Handle,
 	claims identity.SessionClaims,
 	accessToken *oauth2.Token,
@@ -743,7 +744,7 @@ func (s *Stateful) Callback(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// save the session handle
-	if err = s.sessionStore.WriteSessionHandleJWT(w, rawJWT); err != nil {
+	if err = s.sessionStore.WriteSessionHandleJWT(w, r, rawJWT); err != nil {
 		return httputil.NewError(http.StatusInternalServerError, fmt.Errorf("proxy: error saving session handle: %w", err))
 	}
 
