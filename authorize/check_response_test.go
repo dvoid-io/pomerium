@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -710,6 +711,14 @@ func TestRequireLogin(t *testing.T) {
 			&evaluator.Request{})
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusFound, int(res.GetDeniedResponse().GetStatus().GetCode()))
+		// The redirect carries a signed, short-lived sign-in URL: no cache may keep it.
+		cacheControl := ""
+		for _, h := range res.GetDeniedResponse().GetHeaders() {
+			if strings.EqualFold(h.GetHeader().GetKey(), "Cache-Control") {
+				cacheControl = h.GetHeader().GetValue()
+			}
+		}
+		assert.Equal(t, "no-store", cacheControl)
 	})
 	t.Run("accept html", func(t *testing.T) {
 		res, err := a.requireLoginResponse(t.Context(),

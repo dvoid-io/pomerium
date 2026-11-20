@@ -315,6 +315,8 @@ func (a *Authorize) requireLoginResponse(
 		return nil, err
 	}
 	headers["Location"] = []string{redirectTo}
+	// The sign-in URL is signed and short-lived: a cached redirect replays an expired one.
+	headers.Set("Cache-Control", "no-store")
 
 	return a.deniedResponse(ctx, in, http.StatusFound, "Login", headers)
 }
@@ -358,7 +360,8 @@ func (a *Authorize) requireWebAuthnResponse(
 	q.Set(urlutil.QueryIdentityProviderID, idp.GetId())
 	signinURL := urlutil.WebAuthnURL(getHTTPRequestFromCheckRequest(in), &checkRequestURL, state.sharedKey, q)
 	return a.deniedResponse(ctx, in, http.StatusFound, "Login", http.Header{
-		"Location": {signinURL},
+		"Location":      {signinURL},
+		"Cache-Control": {"no-store"}, // signed and short-lived, like the login redirect
 	})
 }
 
